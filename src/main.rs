@@ -59,7 +59,9 @@ fn main() {
                 qword_padding: 6.0,
             };
             let hex_state = HexState::from_config(config);
-            Ok(Box::new(App { hex_state }))
+            // TODO: this should be a file
+            let data: Vec<u8> = (0..4098).map(|i| (i % 256) as u8).collect();
+            Ok(Box::new(App { hex_state, data }))
         }),
     );
 
@@ -75,6 +77,7 @@ fn main() {
 
 struct App {
     hex_state: HexState,
+    data: Vec<u8>,
 }
 
 impl eframe::App for App {
@@ -95,11 +98,10 @@ impl eframe::App for App {
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fullscreen));
         }
 
-        let data: Vec<u8> = (0..4098).map(|i| (i % 256) as u8).collect();
         egui::panel::CentralPanel::default()
             .frame(egui::Frame::new().inner_margin(4))
             .show(ctx, |ui| {
-                hexwidget::draw_scroll(ui, &mut self.hex_state, data.as_slice());
+                hexwidget::draw_scroll(ui, &mut self.hex_state, self.data.as_slice());
             });
     }
 }
