@@ -6,6 +6,42 @@ use std::{collections::HashMap, sync::Arc};
 use egui::Rect;
 use egui::{Align2, Color32, FontId, Galley, Pos2, Sense, Ui, Vec2};
 
+const CTRL_CHAR_MAP: &[char; 33] = &[
+    '\u{2400}', // ␀ Symbol For Null
+    '\u{2401}', // ␁ Symbol For Start of Heading
+    '\u{2402}', // ␂ Symbol For Start of Text
+    '\u{2403}', // ␃ Symbol For End of Text
+    '\u{2404}', // ␄ Symbol For End of Transmission
+    '\u{2405}', // ␅ Symbol For Enquiry
+    '\u{2406}', // ␆ Symbol For Acknowledge
+    '\u{2407}', // ␇ Symbol For Bell
+    '\u{2408}', // ␈ Symbol For Backspace
+    '\u{2409}', // ␉ Symbol For Horizontal Tabulation
+    '\u{240a}', // ␊ Symbol For Line Feed
+    '\u{240b}', // ␋ Symbol For Vertical Tabulation
+    '\u{240c}', // ␌ Symbol For Form Feed
+    '\u{240d}', // ␍ Symbol For Carriage Return
+    '\u{240e}', // ␎ Symbol For Shift Out
+    '\u{240f}', // ␏ Symbol For Shift In
+    '\u{2410}', // ␐ Symbol For Data Link Escape
+    '\u{2411}', // ␑ Symbol For Device Control One
+    '\u{2412}', // ␒ Symbol For Device Control Two
+    '\u{2413}', // ␓ Symbol For Device Control Three
+    '\u{2414}', // ␔ Symbol For Device Control Four
+    '\u{2415}', // ␕ Symbol For Negative Acknowledge
+    '\u{2416}', // ␖ Symbol For Synchronous Idle
+    '\u{2417}', // ␗ Symbol For End of Transmission Block
+    '\u{2418}', // ␘ Symbol For Cancel
+    '\u{2419}', // ␙ Symbol For End of Medium
+    '\u{241a}', // ␚ Symbol For Substitute
+    '\u{241b}', // ␛ Symbol For Escape
+    '\u{241c}', // ␜ Symbol For File Separator
+    '\u{241d}', // ␝ Symbol For Group Separator
+    '\u{241e}', // ␞ Symbol For Record Separator
+    '\u{241f}', // ␟ Symbol For Unit Separator
+    '\u{2420}', // ␠ Symbol For Space
+];
+
 #[derive(Debug, Clone, Default)]
 pub struct HexConfig {
     pub font: FontId,
@@ -101,10 +137,16 @@ pub fn draw_scroll<B: ByteProvider>(ui: &mut Ui, state: &mut HexState, data: B) 
                             let pos = byte_pos(state, offset)
                                 - Vec2::new(0.0, first_row as f32 * state.config.font.size)
                                 + Vec2::new(hex_x_pos, base_offset.y);
-                            let (c, color) = if byte.is_ascii_graphic() {
+                            // Unicode glyphs for control characters
+                            let (c, color) = if (*byte as usize) < CTRL_CHAR_MAP.len() {
+                                (CTRL_CHAR_MAP[*byte as usize], Color32::GRAY)
+                            // DEL character
+                            } else if *byte == 0x7f {
+                                ('\u{2421}', Color32::GRAY)
+                            } else if byte.is_ascii_graphic() {
                                 (*byte as char, Color32::WHITE)
                             } else {
-                                ('.', Color32::GRAY)
+                                ('\u{00b7}', Color32::GRAY)
                             };
                             ui.painter().text(
                                 Pos2::new(ascii_x_pos + col as f32 * state.config.font.size, pos.y),
