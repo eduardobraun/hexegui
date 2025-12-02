@@ -16,7 +16,7 @@ pub struct HexConfig {
     pub qword_padding: f32,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct HexState {
     galleys: HashMap<u8, Arc<Galley>>,
     config: HexConfig,
@@ -51,14 +51,20 @@ impl ByteProvider for &[u8] {
 }
 
 pub fn draw_scroll<B: ByteProvider>(ui: &mut Ui, state: &mut HexState, data: B) {
+    // TODO: rewrite offset/position calculations, this was just me learning to use egui
+    let base_offset = ui.max_rect().min;
     let row_height = state.config.font.size;
+    // remove all ui spacing for this context, ScrollArea uses it for row heights
     ui.spacing_mut().item_spacing = Vec2::new(0.0, 0.0);
+    // NOTE: floating scroll is conflicting with egui_tiles, just disabled it for now
+    ui.spacing_mut().scroll.floating = false;
     let max_visible_rows = (ui.available_height() / row_height) as usize;
-    let hex_x_pos = 6.0 * state.config.font.size;
+    let hex_x_pos = base_offset.x + 6.0 * state.config.font.size;
     let ascii_x_pos = hex_x_pos + byte_pos(state, 15).x + state.config.font.size + 30.0;
     let total_width = ascii_x_pos + state.config.font.size * 16.0;
     let total_rows = data.len().div_ceil(16);
     egui::ScrollArea::vertical()
+        .auto_shrink(false)
         .scroll_source(ScrollSource::SCROLL_BAR | ScrollSource::MOUSE_WHEEL)
         .show_rows(
             ui,
@@ -77,7 +83,7 @@ pub fn draw_scroll<B: ByteProvider>(ui: &mut Ui, state: &mut HexState, data: B) 
                         break;
                     }
                     let row_address = format!("{:08x}:", row * 16);
-                    let row_pos = byte_pos(state, row * 16)
+                    let row_pos = byte_pos(state, row * 16) + base_offset.to_vec2()
                         - Vec2::new(0.0, first_row as f32 * state.config.font.size);
 
                     ui.painter().text(
@@ -94,7 +100,7 @@ pub fn draw_scroll<B: ByteProvider>(ui: &mut Ui, state: &mut HexState, data: B) 
                             let offset = row * 16 + col;
                             let pos = byte_pos(state, offset)
                                 - Vec2::new(0.0, first_row as f32 * state.config.font.size)
-                                + Vec2::new(hex_x_pos, 0.0);
+                                + Vec2::new(hex_x_pos, base_offset.y);
                             let (c, color) = if byte.is_ascii_graphic() {
                                 (*byte as char, Color32::WHITE)
                             } else {

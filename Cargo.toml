@@ -13,3 +13,4 @@ egui_extras = { version = "0.33", features = ["default", "image"] }
 egui_font_loader = "1.0.0"
 egui_hooks = "0.10.0"
 oem_cp = "2.1.1"
+egui_tiles = "0.14.0"

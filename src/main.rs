@@ -2,10 +2,81 @@ use egui::{
     FontData, FontFamily, FontId,
     epaint::text::{FontInsert, FontPriority, InsertFontFamily},
 };
+use egui_tiles::Tree;
 
 use crate::hexwidget::{HexConfig, HexState};
 
 mod hexwidget;
+
+struct Pane {
+    nr: usize,
+    // TODO: pane should have a way to define its content, currently every pane draws the same
+    // hexwidget. Maybe this should be stored in egui::Memory
+    data: Vec<u8>,
+    hex_state: HexState,
+}
+
+struct TreeBehavior {}
+
+impl egui_tiles::Behavior<Pane> for TreeBehavior {
+    fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
+        format!("Pane {}", pane.nr).into()
+    }
+
+    fn pane_ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        _tile_id: egui_tiles::TileId,
+        pane: &mut Pane,
+    ) -> egui_tiles::UiResponse {
+        hexwidget::draw_scroll(ui, &mut pane.hex_state, pane.data.as_slice());
+        egui_tiles::UiResponse::None
+    }
+}
+
+fn create_tree() -> egui_tiles::Tree<Pane> {
+    let config = HexConfig {
+        font: FontId {
+            size: 20.0,
+            family: FontFamily::Name("IosevkaNerdFontMono-Light".into()),
+        },
+        uppercase_hex: false,
+        byte_padding: 2.0,
+        word_padding: 2.0,
+        dword_padding: 2.0,
+        qword_padding: 6.0,
+    };
+    let hex_state = HexState::from_config(config);
+    // TODO: this should be a file
+    let data: Vec<u8> = (0..4098).map(|i| (i % 256) as u8).collect();
+    let mut next_view_nr = 0;
+    let mut gen_pane = || {
+        let pane = Pane {
+            nr: next_view_nr,
+            data: data.clone(),
+            hex_state: hex_state.clone(),
+        };
+        next_view_nr += 1;
+        pane
+    };
+
+    let mut tiles = egui_tiles::Tiles::default();
+
+    let mut tabs = vec![];
+    tabs.push({
+        let children = (0..7).map(|_| tiles.insert_pane(gen_pane())).collect();
+        tiles.insert_horizontal_tile(children)
+    });
+    tabs.push({
+        let cells = (0..11).map(|_| tiles.insert_pane(gen_pane())).collect();
+        tiles.insert_grid_tile(cells)
+    });
+    tabs.push(tiles.insert_pane(gen_pane()));
+
+    let root = tiles.insert_tab_tile(tabs);
+
+    egui_tiles::Tree::new("my_tree", root, tiles)
+}
 
 fn main() {
     {
@@ -47,21 +118,8 @@ fn main() {
                 "IosevkaNerdFontMono-Light",
                 "../resources/fonts/IosevkaNerdFontMono-Light.ttf"
             );
-            let config = HexConfig {
-                font: FontId {
-                    size: 20.0,
-                    family: FontFamily::Name("IosevkaNerdFontMono-Light".into()),
-                },
-                uppercase_hex: false,
-                byte_padding: 2.0,
-                word_padding: 2.0,
-                dword_padding: 2.0,
-                qword_padding: 6.0,
-            };
-            let hex_state = HexState::from_config(config);
-            // TODO: this should be a file
-            let data: Vec<u8> = (0..4098).map(|i| (i % 256) as u8).collect();
-            Ok(Box::new(App { hex_state, data }))
+            let tree = create_tree();
+            Ok(Box::new(App { tree }))
         }),
     );
 
@@ -76,8 +134,7 @@ fn main() {
 }
 
 struct App {
-    hex_state: HexState,
-    data: Vec<u8>,
+    tree: Tree<Pane>,
 }
 
 impl eframe::App for App {
@@ -98,10 +155,9 @@ impl eframe::App for App {
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fullscreen));
         }
 
-        egui::panel::CentralPanel::default()
-            .frame(egui::Frame::new().inner_margin(4))
-            .show(ctx, |ui| {
-                hexwidget::draw_scroll(ui, &mut self.hex_state, self.data.as_slice());
-            });
+        egui::CentralPanel::default().show(ctx, |ui| {
+            let mut behavior = TreeBehavior {};
+            self.tree.ui(&mut behavior, ui);
+        });
     }
 }
