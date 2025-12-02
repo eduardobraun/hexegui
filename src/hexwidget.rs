@@ -1,6 +1,6 @@
 use egui::scroll_area::ScrollSource;
 use egui_hooks::UseHookExt as _;
-use std::ops::Rem;
+use std::ops::{Range, Rem};
 use std::{collections::HashMap, sync::Arc};
 
 use egui::Rect;
@@ -32,20 +32,17 @@ impl HexState {
 }
 
 pub trait ByteProvider {
-    fn get_row(&self, row: usize, bytes_per_row: usize) -> Option<&[u8]>;
+    fn get_range(&self, range: Range<usize>) -> Option<&[u8]>;
     fn len(&self) -> usize;
 }
 
 impl ByteProvider for &[u8] {
-    fn get_row(&self, row: usize, bytes_per_row: usize) -> Option<&[u8]> {
-        let start = row * bytes_per_row;
-        let end = start + bytes_per_row;
-        let end = self.len().min(end);
-        let this: &[u8] = self;
-        if start >= self.len() {
+    fn get_range(&self, mut range: Range<usize>) -> Option<&[u8]> {
+        if range.is_empty() || range.start >= self.len() {
             return None;
         }
-        Some(&this[start..end])
+        range.end = range.end.min(self.len());
+        Some(&self[range])
     }
     fn len(&self) -> usize {
         let this: &[u8] = self;
@@ -60,7 +57,7 @@ pub fn draw_scroll<B: ByteProvider>(ui: &mut Ui, state: &mut HexState, data: B) 
     let hex_x_pos = 6.0 * state.config.font.size;
     let ascii_x_pos = hex_x_pos + byte_pos(state, 15).x + state.config.font.size + 30.0;
     let total_width = ascii_x_pos + state.config.font.size * 16.0;
-    let total_rows = data.len() / 16;
+    let total_rows = data.len().div_ceil(16);
     egui::ScrollArea::vertical()
         .scroll_source(ScrollSource::SCROLL_BAR | ScrollSource::MOUSE_WHEEL)
         .show_rows(
@@ -90,7 +87,9 @@ pub fn draw_scroll<B: ByteProvider>(ui: &mut Ui, state: &mut HexState, data: B) 
                         state.config.font.clone(),
                         Color32::GRAY,
                     );
-                    if let Some(row_data) = data.get_row(row, 16) {
+                    let row_start = row * 16;
+                    let row_end = row_start + 16;
+                    if let Some(row_data) = data.get_range(row_start..row_end) {
                         for (col, byte) in row_data.iter().enumerate() {
                             let offset = row * 16 + col;
                             let pos = byte_pos(state, offset)

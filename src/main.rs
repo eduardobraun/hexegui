@@ -95,7 +95,7 @@ impl eframe::App for App {
             ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!fullscreen));
         }
 
-        let data: Vec<u8> = (0..4096).map(|i| (i % 256) as u8).collect();
+        let data: Vec<u8> = (0..4098).map(|i| (i % 256) as u8).collect();
         egui::panel::CentralPanel::default()
             .frame(egui::Frame::new().inner_margin(4))
             .show(ctx, |ui| {
